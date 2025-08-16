@@ -25,6 +25,67 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# -------------------- Estilos Azul/Amarillo (Boca) --------------------
+st.markdown("""
+<style>
+:root{
+  --primary:#0d47a1;   /* Azul */
+  --accent:#ffca28;    /* Amarillo */
+  --bg:#ffffff;        /* Blanco */
+  --text:#0d47a1;      /* Texto principal azul */
+  --muted:#5f6368;     /* Gris */
+  --radius:14px;
+  --shadow:0 6px 18px rgba(0,0,0,.08);
+}
+
+/* Fondo y tipografía */
+html, body, .stApp { background: var(--bg) !important; color: var(--text) !important; }
+
+/* Separadores */
+hr { border:0; height:1px; background: #e6e8eb; }
+
+/* Títulos */
+h1,h2,h3,h4,h5,h6 {
+  color: var(--primary) !important;
+  font-weight: 800 !important;
+}
+
+/* Contenedores con borde (fallback si no hay border=True) */
+.block-container { padding-top: 2rem !important; }
+
+/* Inputs */
+.stTextInput > div > div > input,
+.stTextArea textarea,
+.stNumberInput input,
+.stDateInput input {
+  border:1.2px solid var(--primary) !important;
+  border-radius: var(--radius) !important;
+  color: var(--text) !important;
+  background: #fff !important;
+}
+
+/* Botones */
+.stButton>button {
+  background: var(--primary) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow) !important;
+  border: 0 !important;
+}
+.stButton>button:hover { background: var(--accent) !important; color: var(--primary) !important; }
+
+/* Métricas */
+[data-testid="stMetricValue"] { color: var(--primary) !important; }
+
+/* Dataframe */
+[data-testid="stDataFrame"] div[data-testid="StyledTable"] {
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # -------------------- Helpers --------------------
 CURRENCY = "ARS"
 BASE_DIR = Path(__file__).parent
@@ -63,7 +124,7 @@ if "line_items" not in st.session_state:
 
 # -------------------- Encabezado (UI) --------------------
 st.title("🧾 Generador de Presupuestos")
-st.caption("Completar > revisar > Generar PDF.")
+st.caption("Completar → revisar → generar PDF")
 
 colA, colB, colC, colD = st.columns((1, 1, 1, 1))
 with colA:
