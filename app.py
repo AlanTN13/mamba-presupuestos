@@ -25,15 +25,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# -------------------- Estilos (azul #0033cc + amarillo #ffcc00) --------------------
+# -------------------- Estilos (azul único #000033) --------------------
 st.markdown("""
 <style>
 :root{
-  --primary:#0033cc;   /* Azul */
-  --accent:#ffcc00;    /* Amarillo */
+  --primary:#000033;   /* Único azul */
   --bg:#ffffff;        /* Blanco */
-  --text:#1f2a44;      /* Azul neutro p/ textos */
-  --muted:#5f6368;
+  --text:#1f2430;      /* Texto neutro */
+  --muted:#6b7280;     /* Gris */
   --radius:14px;
   --shadow:0 6px 18px rgba(0,0,0,.08);
 }
@@ -56,8 +55,9 @@ h1,h2,h3,h4,h5,h6 { color: var(--primary) !important; font-weight:800 !important
   background:#fff !important;
 }
 
-/* Botones genéricos */
-.stButton>button {
+/* Botón genérico */
+.stButton>button,
+.stDownloadButton>button {
   background: var(--primary) !important;
   color: #fff !important;
   font-weight: 700 !important;
@@ -65,28 +65,51 @@ h1,h2,h3,h4,h5,h6 { color: var(--primary) !important; font-weight:800 !important
   box-shadow: var(--shadow) !important;
   border: 0 !important;
 }
-.stButton>button:hover { background: var(--accent) !important; color: #001b66 !important; }
+.stButton>button:hover,
+.stDownloadButton>button:hover {
+  filter: brightness(1.1);
+}
 
-/* Botones + / - de st.number_input (quita el rojo) */
+/* Botones + / - de st.number_input (sin rojo) */
 div[data-testid="stNumberInput"] button {
-  background: var(--accent) !important;
-  color: #001b66 !important;
-  border: 1px solid var(--primary) !important;
+  background: var(--primary) !important;
+  color: #fff !important;
+  border: 0 !important;
   border-radius: 10px !important;
 }
 div[data-testid="stNumberInput"] button:hover {
-  background: var(--primary) !important;
-  color: #fff !important;
+  filter: brightness(1.1);
 }
 
 /* Métricas */
 [data-testid="stMetricValue"] { color: var(--primary) !important; }
 
-/* Dataframe */
-[data-testid="stDataFrame"] div[data-testid="StyledTable"] {
-  border-radius: var(--radius) !important;
-  box-shadow: var(--shadow) !important;
+/* ---- Tabla custom clara ---- */
+.table-wrap {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  border: 1px solid #e9edf3;
 }
+table.presu {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+table.presu thead th {
+  background: var(--primary);
+  color: #fff;
+  text-align: left;
+  padding: 12px 14px;
+  font-weight: 700;
+}
+table.presu tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #eef1f6;
+  color: var(--text);
+}
+table.presu tbody tr:last-child td { border-bottom: 0; }
+table.presu td.num { text-align: right; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -102,7 +125,7 @@ LOGO_CANDIDATES = [
     ASSETS_DIR / "logo.jpeg",
     BASE_DIR / "logo.png",
     BASE_DIR / "logo.jpg",
-    BASE_DIR / "Imagen 1.jpg",  # el tuyo actual
+    BASE_DIR / "Imagen 1.jpg",
 ]
 
 def find_logo_path() -> Path | None:
@@ -145,7 +168,7 @@ with colD:
 
 st.markdown("---")
 
-# -------------------- Ítems (tipo tarjetas) --------------------
+# -------------------- Ítems (tarjetas) --------------------
 st.subheader("Ítems")
 
 def render_item(i: int, item: dict):
@@ -179,19 +202,46 @@ with c_clear:
         st.session_state["line_items"] = []
         st.rerun()
 
-# -------------------- Resumen & Totales --------------------
+# -------------------- Resumen (tabla HTML clara) --------------------
 if st.session_state["line_items"]:
     df = pd.DataFrame(st.session_state["line_items"]).fillna({"cantidad": 0, "precio": 0.0})
     df["monto"] = df["cantidad"] * df["precio"]
 else:
     df = pd.DataFrame(columns=["descripcion", "cantidad", "precio", "monto"])
 
-st.dataframe(
-    df.rename(columns={"descripcion": "Descripción", "cantidad": "Cantidad", "precio": "Precio unitario", "monto": "Monto"}),
-    use_container_width=True,
-    hide_index=True,
-)
+def render_summary_table(df: pd.DataFrame):
+    rows = []
+    for _, r in df.iterrows():
+        rows.append(f"""
+          <tr>
+            <td>{str(r.get('descripcion',''))}</td>
+            <td class="num">{int(r.get('cantidad',0))}</td>
+            <td class="num">{money(float(r.get('precio',0.0)))}</td>
+            <td class="num">{money(float(r.get('monto',0.0)))}</td>
+          </tr>
+        """)
+    html = f"""
+    <div class="table-wrap">
+      <table class="presu">
+        <thead>
+          <tr>
+            <th>Descripción</th>
+            <th>Cantidad</th>
+            <th>Precio unitario</th>
+            <th>Monto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {''.join(rows) if rows else '<tr><td colspan="4" style="text-align:center;color:#888;padding:14px">Sin ítems</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
 
+render_summary_table(df)
+
+# -------------------- Totales --------------------
 subtotal = float(df["monto"].sum()) if not df.empty else 0.0
 descuento = subtotal * (descuento_pct / 100.0)
 base = subtotal - descuento
@@ -237,16 +287,16 @@ def build_pdf() -> bytes:
     )
 
     styles = getSampleStyleSheet()
-    # estilos únicos (evita choque de nombres)
+    # estilos únicos
     if "H1X" not in styles:
-        styles.add(ParagraphStyle(name="H1X", fontSize=18, leading=22, spaceAfter=6))
+        styles.add(ParagraphStyle(name="H1X", fontSize=18, leading=22, spaceAfter=6, textColor=colors.HexColor("#000033")))
     if "H2X" not in styles:
         styles.add(ParagraphStyle(name="H2X", fontSize=12, leading=15, textColor=colors.grey))
     if "RightX" not in styles:
         styles.add(ParagraphStyle(name="RightX", alignment=TA_RIGHT))
     if "TitleBadge" not in styles:
         styles.add(ParagraphStyle(name="TitleBadge", fontSize=28, leading=30,
-                                  backColor=colors.HexColor("#ffcc00"), textColor=colors.black,
+                                  backColor=colors.HexColor("#000033"), textColor=colors.white,
                                   alignment=TA_RIGHT, spaceAfter=6))
     if "HashNum" not in styles:
         styles.add(ParagraphStyle(name="HashNum", fontSize=12, textColor=colors.grey, alignment=TA_RIGHT))
@@ -294,22 +344,22 @@ def build_pdf() -> bytes:
     header_mid.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     story += [header_mid, Spacer(1, 3 * mm)]
 
-    # cajita TOTAL
+    # Total destacado
     total_tbl = Table(
-        [[Paragraph(":", styles["H2X"]), Paragraph(money(TOTAL), styles["TotalBox"])]],
-        colWidths=[10 * mm, 60 * mm]
+        [[Paragraph("TOTAL", styles["H2X"]), Paragraph(money(TOTAL), styles["TotalBox"])]],
+        colWidths=[20 * mm, 60 * mm]
     )
     total_tbl.setStyle(TableStyle([
-        ("BACKGROUND", (1, 0), (1, 0), colors.whitesmoke),
-        ("BOX", (1, 0), (1, 0), 0.5, colors.lightgrey),
+        ("BACKGROUND", (0, 0), (1, 0), colors.whitesmoke),
+        ("BOX", (0, 0), (1, 0), 0.5, colors.lightgrey),
         ("RIGHTPADDING", (1, 0), (1, 0), 6),
-        ("LEFTPADDING", (1, 0), (1, 0), 6),
+        ("LEFTPADDING", (0, 0), (0, 0), 6),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
-    total_row = Table([[Spacer(1, 0), total_tbl]], colWidths=[110 * mm, 60 * mm])
+    total_row = Table([[Spacer(1, 0), total_tbl]], colWidths=[100 * mm, 70 * mm])
     story += [total_row, Spacer(1, 6 * mm)]
 
-    # tabla de ítems
+    # tabla de ítems (encabezado azul)
     table_data = [["Artículo", "Cantidad", "Precio", "Monto"]]
     for _, row in df.iterrows():
         table_data.append([
@@ -321,8 +371,8 @@ def build_pdf() -> bytes:
 
     items_tbl = Table(table_data, colWidths=[100 * mm, 20 * mm, 25 * mm, 25 * mm])
     items_tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.25, 0.25, 0.25)),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#000033")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
         ("ALIGN", (0, 0), (0, -1), "LEFT"),
