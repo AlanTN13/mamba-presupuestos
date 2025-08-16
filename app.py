@@ -6,6 +6,7 @@ from datetime import date, timedelta
 
 import streamlit as st
 import pandas as pd
+import streamlit.components.v1 as components
 
 # PDF
 from reportlab.lib import colors
@@ -25,14 +26,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# -------------------- Estilos (azul único #000033) --------------------
+# -------------------- Estilos (azul único + hover amarillo) --------------------
 st.markdown("""
 <style>
 :root{
   --primary:#000033;   /* Único azul */
-  --bg:#ffffff;        /* Blanco */
-  --text:#1f2430;      /* Texto neutro */
-  --muted:#6b7280;     /* Gris */
+  --accent:#ffcc00;    /* Amarillo hover */
+  --bg:#ffffff;
+  --text:#1f2430;
+  --muted:#6b7280;
   --radius:14px;
   --shadow:0 6px 18px rgba(0,0,0,.08);
 }
@@ -55,9 +57,8 @@ h1,h2,h3,h4,h5,h6 { color: var(--primary) !important; font-weight:800 !important
   background:#fff !important;
 }
 
-/* Botón genérico */
-.stButton>button,
-.stDownloadButton>button {
+/* Botones principales y de descarga */
+.stButton>button, .stDownloadButton>button {
   background: var(--primary) !important;
   color: #fff !important;
   font-weight: 700 !important;
@@ -65,12 +66,12 @@ h1,h2,h3,h4,h5,h6 { color: var(--primary) !important; font-weight:800 !important
   box-shadow: var(--shadow) !important;
   border: 0 !important;
 }
-.stButton>button:hover,
-.stDownloadButton>button:hover {
-  filter: brightness(1.1);
+.stButton>button:hover, .stDownloadButton>button:hover {
+  background: var(--accent) !important;
+  color: var(--primary) !important;
 }
 
-/* Botones + / - de st.number_input (sin rojo) */
+/* Botones + / - del number_input */
 div[data-testid="stNumberInput"] button {
   background: var(--primary) !important;
   color: #fff !important;
@@ -78,38 +79,12 @@ div[data-testid="stNumberInput"] button {
   border-radius: 10px !important;
 }
 div[data-testid="stNumberInput"] button:hover {
-  filter: brightness(1.1);
+  background: var(--accent) !important;
+  color: var(--primary) !important;
 }
 
 /* Métricas */
 [data-testid="stMetricValue"] { color: var(--primary) !important; }
-
-/* ---- Tabla custom clara ---- */
-.table-wrap {
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  border: 1px solid #e9edf3;
-}
-table.presu {
-  width: 100%;
-  border-collapse: collapse;
-  background: #fff;
-}
-table.presu thead th {
-  background: var(--primary);
-  color: #fff;
-  text-align: left;
-  padding: 12px 14px;
-  font-weight: 700;
-}
-table.presu tbody td {
-  padding: 10px 14px;
-  border-bottom: 1px solid #eef1f6;
-  color: var(--text);
-}
-table.presu tbody tr:last-child td { border-bottom: 0; }
-table.presu td.num { text-align: right; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -118,7 +93,7 @@ CURRENCY = "ARS"
 BASE_DIR = Path(__file__).parent
 ASSETS_DIR = BASE_DIR / "assets"
 
-# buscamos automáticamente el logo en rutas comunes
+# buscamos automáticamente el logo
 LOGO_CANDIDATES = [
     ASSETS_DIR / "logo.png",
     ASSETS_DIR / "logo.jpg",
@@ -148,7 +123,7 @@ DEFAULT_ITEMS = [
 if "line_items" not in st.session_state:
     st.session_state["line_items"] = DEFAULT_ITEMS.copy()
 
-# -------------------- Encabezado (UI) --------------------
+# -------------------- Encabezado --------------------
 st.title("🧾 Generador de Presupuestos")
 st.caption("Completar → revisar → generar PDF")
 
@@ -168,7 +143,7 @@ with colD:
 
 st.markdown("---")
 
-# -------------------- Ítems (tarjetas) --------------------
+# -------------------- Ítems --------------------
 st.subheader("Ítems")
 
 def render_item(i: int, item: dict):
@@ -202,7 +177,7 @@ with c_clear:
         st.session_state["line_items"] = []
         st.rerun()
 
-# -------------------- Resumen (tabla HTML clara) --------------------
+# -------------------- Resumen (tabla HTML con components) --------------------
 if st.session_state["line_items"]:
     df = pd.DataFrame(st.session_state["line_items"]).fillna({"cantidad": 0, "precio": 0.0})
     df["monto"] = df["cantidad"] * df["precio"]
@@ -210,34 +185,79 @@ else:
     df = pd.DataFrame(columns=["descripcion", "cantidad", "precio", "monto"])
 
 def render_summary_table(df: pd.DataFrame):
-    rows = []
+    rows_html = ""
     for _, r in df.iterrows():
-        rows.append(f"""
+        rows_html += f"""
           <tr>
             <td>{str(r.get('descripcion',''))}</td>
             <td class="num">{int(r.get('cantidad',0))}</td>
             <td class="num">{money(float(r.get('precio',0.0)))}</td>
             <td class="num">{money(float(r.get('monto',0.0)))}</td>
           </tr>
-        """)
+        """
+    if not rows_html:
+        rows_html = '<tr><td colspan="4" class="empty">Sin ítems</td></tr>'
+
     html = f"""
-    <div class="table-wrap">
-      <table class="presu">
-        <thead>
-          <tr>
-            <th>Descripción</th>
-            <th>Cantidad</th>
-            <th>Precio unitario</th>
-            <th>Monto</th>
-          </tr>
-        </thead>
-        <tbody>
-          {''.join(rows) if rows else '<tr><td colspan="4" style="text-align:center;color:#888;padding:14px">Sin ítems</td></tr>'}
-        </tbody>
-      </table>
-    </div>
+    <html>
+    <head>
+      <style>
+        :root {{
+          --primary:#000033;
+          --text:#1f2430;
+          --radius:14px;
+          --shadow:0 6px 18px rgba(0,0,0,.08);
+        }}
+        body {{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:var(--text); }}
+        .table-wrap {{
+          border-radius: var(--radius);
+          box-shadow: var(--shadow);
+          overflow: hidden;
+          border: 1px solid #e9edf3;
+          margin: 2px;
+        }}
+        table.presu {{
+          width: 100%;
+          border-collapse: collapse;
+          background: #fff;
+        }}
+        table.presu thead th {{
+          background: var(--primary);
+          color: #fff;
+          text-align: left;
+          padding: 12px 14px;
+          font-weight: 700;
+        }}
+        table.presu tbody td {{
+          padding: 10px 14px;
+          border-bottom: 1px solid #eef1f6;
+        }}
+        table.presu tbody tr:last-child td {{ border-bottom: 0; }}
+        td.num {{ text-align:right; white-space: nowrap; }}
+        td.empty {{ text-align:center; color:#888; padding:14px; }}
+      </style>
+    </head>
+    <body>
+      <div class="table-wrap">
+        <table class="presu">
+          <thead>
+            <tr>
+              <th>Descripción</th>
+              <th>Cantidad</th>
+              <th>Precio unitario</th>
+              <th>Monto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows_html}
+          </tbody>
+        </table>
+      </div>
+    </body>
+    </html>
     """
-    st.markdown(html, unsafe_allow_html=True)
+    height = 120 + max(1, len(df)) * 44
+    components.html(html, height=height, scrolling=False)
 
 render_summary_table(df)
 
@@ -287,7 +307,6 @@ def build_pdf() -> bytes:
     )
 
     styles = getSampleStyleSheet()
-    # estilos únicos
     if "H1X" not in styles:
         styles.add(ParagraphStyle(name="H1X", fontSize=18, leading=22, spaceAfter=6, textColor=colors.HexColor("#000033")))
     if "H2X" not in styles:
@@ -359,7 +378,7 @@ def build_pdf() -> bytes:
     total_row = Table([[Spacer(1, 0), total_tbl]], colWidths=[100 * mm, 70 * mm])
     story += [total_row, Spacer(1, 6 * mm)]
 
-    # tabla de ítems (encabezado azul)
+    # tabla de ítems
     table_data = [["Artículo", "Cantidad", "Precio", "Monto"]]
     for _, row in df.iterrows():
         table_data.append([
