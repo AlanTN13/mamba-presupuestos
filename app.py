@@ -250,5 +250,3 @@ csv = (
       .to_csv(index=False).encode("utf-8")
 )
 st.download_button("Descargar ítems (CSV)", data=csv, file_name=f"items_{nro}.csv", mime="text/csv")
-
-st.info("Tip: Podés dejar la app pública para que la complete tu hermana y descargue el PDF.")
