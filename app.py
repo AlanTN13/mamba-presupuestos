@@ -12,7 +12,7 @@ import streamlit.components.v1 as components
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
@@ -38,15 +38,10 @@ st.markdown("""
   --radius:14px;
   --shadow:0 6px 18px rgba(0,0,0,.08);
 }
-
-/* Fondo y tipografía */
 html, body, .stApp { background: var(--bg) !important; color: var(--text) !important; }
 .block-container { padding-top: 2rem !important; }
-
-/* Títulos */
 h1,h2,h3,h4,h5,h6 { color: var(--primary) !important; font-weight:800 !important; }
 
-/* Inputs */
 .stTextInput > div > div > input,
 .stTextArea textarea,
 .stNumberInput input,
@@ -57,7 +52,6 @@ h1,h2,h3,h4,h5,h6 { color: var(--primary) !important; font-weight:800 !important
   background:#fff !important;
 }
 
-/* Botones principales y de descarga */
 .stButton>button, .stDownloadButton>button {
   background: var(--primary) !important;
   color: #fff !important;
@@ -71,7 +65,6 @@ h1,h2,h3,h4,h5,h6 { color: var(--primary) !important; font-weight:800 !important
   color: var(--primary) !important;
 }
 
-/* Botones + / - del number_input */
 div[data-testid="stNumberInput"] button {
   background: var(--primary) !important;
   color: #fff !important;
@@ -82,14 +75,12 @@ div[data-testid="stNumberInput"] button:hover {
   background: var(--accent) !important;
   color: var(--primary) !important;
 }
-
-/* Métricas */
 [data-testid="stMetricValue"] { color: var(--primary) !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # -------------------- Helpers --------------------
-CURRENCY = "$"  # para PDF estilo Word
+CURRENCY = "$"  # estilo Word
 
 BASE_DIR = Path(__file__).parent
 ASSETS_DIR = BASE_DIR / "assets"
@@ -206,62 +197,22 @@ def render_summary_table(df: pd.DataFrame):
         rows_html = '<tr><td colspan="4" class="empty">Sin ítems</td></tr>'
 
     html = f"""
-    <html>
-    <head>
-      <style>
-        :root {{
-          --primary:#000033;
-          --text:#1f2430;
-          --radius:14px;
-          --shadow:0 6px 18px rgba(0,0,0,.08);
-        }}
-        body {{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:var(--text); }}
-        .table-wrap {{
-          border-radius: var(--radius);
-          box-shadow: var(--shadow);
-          overflow: hidden;
-          border: 1px solid #e9edf3;
-          margin: 2px;
-        }}
-        table.presu {{
-          width: 100%;
-          border-collapse: collapse;
-          background: #fff;
-        }}
-        table.presu thead th {{
-          background: var(--primary);
-          color: #fff;
-          text-align: left;
-          padding: 12px 14px;
-          font-weight: 700;
-        }}
-        table.presu tbody td {{
-          padding: 10px 14px;
-          border-bottom: 1px solid #eef1f6;
-        }}
-        table.presu tbody tr:last-child td {{ border-bottom: 0; }}
-        td.num {{ text-align:right; white-space: nowrap; }}
-        td.empty {{ text-align:center; color:#888; padding:14px; }}
-      </style>
-    </head>
-    <body>
-      <div class="table-wrap">
-        <table class="presu">
-          <thead>
-            <tr>
-              <th>Descripción</th>
-              <th>Cantidad</th>
-              <th>Precio unitario</th>
-              <th>Monto</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows_html}
-          </tbody>
-        </table>
-      </div>
-    </body>
-    </html>
+    <html><head><style>
+      :root {{ --primary:#000033; --text:#1f2430; --radius:14px; --shadow:0 6px 18px rgba(0,0,0,.08); }}
+      body {{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:var(--text); }}
+      .table-wrap {{ border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; border: 1px solid #e9edf3; margin: 2px; }}
+      table.presu {{ width: 100%; border-collapse: collapse; background: #fff; }}
+      thead th {{ background:#000033; color:#fff; text-align: left; padding: 12px 14px; font-weight:700; }}
+      tbody td {{ padding: 10px 14px; border-bottom: 1px solid #eef1f6; }}
+      tbody tr:last-child td {{ border-bottom: 0; }}
+      td.num {{ text-align:right; white-space: nowrap; }}
+      td.empty {{ text-align:center; color:#888; padding:14px; }}
+    </style></head>
+    <body><div class="table-wrap">
+      <table class="presu">
+        <thead><tr><th>Descripción</th><th>Cantidad</th><th>Precio unitario</th><th>Monto</th></tr></thead>
+        <tbody>{rows_html}</tbody>
+      </table></div></body></html>
     """
     height = 120 + max(1, len(df)) * 44
     components.html(html, height=height, scrolling=False)
@@ -302,7 +253,7 @@ terminos = st.text_area(
     height=120,
 )
 
-# -------------------- PDF (estilo Word) --------------------
+# -------------------- PDF (ajustes visuales) --------------------
 def build_pdf() -> bytes:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -314,18 +265,31 @@ def build_pdf() -> bytes:
     )
 
     styles = getSampleStyleSheet()
+
     azul = colors.HexColor("#000033")
     gris_h1 = colors.HexColor("#333333")
     gris_txt = colors.HexColor("#666666")
     gris_header = colors.HexColor("#6e6e6e")
     gris_rowline = colors.HexColor("#e6e6e6")
+    gris_box = colors.whitesmoke
 
+    # Estilos
     if "TitleMain" not in styles:
         styles.add(ParagraphStyle("TitleMain", fontName="Helvetica-Bold",
-                                  fontSize=28, leading=32, textColor=gris_h1, alignment=TA_CENTER, spaceAfter=6))
-    if "Meta" not in styles:
-        styles.add(ParagraphStyle("Meta", fontName="Helvetica",
-                                  fontSize=10.5, leading=14, textColor=gris_txt, alignment=TA_RIGHT))
+                                  fontSize=28, leading=32, textColor=gris_h1,
+                                  alignment=TA_CENTER, spaceAfter=6))
+    if "MetaRight" not in styles:
+        styles.add(ParagraphStyle("MetaRight", fontName="Helvetica",
+                                  fontSize=10.5, leading=14, textColor=gris_txt,
+                                  alignment=TA_RIGHT))
+    if "MetaKVLabel" not in styles:
+        styles.add(ParagraphStyle("MetaKVLabel", fontName="Helvetica-Bold",
+                                  fontSize=10.5, leading=14, textColor=gris_txt,
+                                  alignment=TA_RIGHT))
+    if "MetaKVValue" not in styles:
+        styles.add(ParagraphStyle("MetaKVValue", fontName="Helvetica",
+                                  fontSize=10.5, leading=14, textColor=gris_h1,
+                                  alignment=TA_LEFT))
     if "LabelLeft" not in styles:
         styles.add(ParagraphStyle("LabelLeft", fontName="Helvetica",
                                   fontSize=11, leading=14, textColor=gris_txt))
@@ -347,32 +311,53 @@ def build_pdf() -> bytes:
 
     story = []
 
-    # Header: Logo + bloque derecho con título centrado y metadatos
+    # -------- Cabecera: Logo + bloque derecho en caja + TOTAL destacado -------
     title_par = Paragraph(f"Presupuesto: #{nro}", styles["TitleMain"])
-    meta_right = [
-        title_par,
-        Spacer(1, 4*mm),
-        Paragraph(f"Fecha: {fecha_larga(fecha)}", styles["Meta"]),
-        Paragraph(f"Condiciones de pago: {pago}", styles["Meta"]),
-        Paragraph(f"Fecha de vencimiento: {fecha_larga(vencimiento)}", styles["Meta"]),
-    ]
 
-    logo_cell = []
+    # Mini-caja con metadatos prolija
+    meta_table = Table([
+        [Paragraph("Fecha:", styles["MetaKVLabel"]),        Paragraph(fecha_larga(fecha), styles["MetaKVValue"])],
+        [Paragraph("Condiciones de pago:", styles["MetaKVLabel"]), Paragraph(pago, styles["MetaKVValue"])],
+        [Paragraph("Vencimiento:", styles["MetaKVLabel"]),  Paragraph(fecha_larga(vencimiento), styles["MetaKVValue"])],
+    ], colWidths=[42*mm, 73*mm])
+    meta_card = Table([[meta_table]], colWidths=[115*mm])
+    meta_card.setStyle(TableStyle([
+        ("BOX", (0,0), (-1,-1), 0.5, gris_rowline),
+        ("BACKGROUND", (0,0), (-1,-1), gris_box),
+        ("INNERGRID", (0,0), (-1,-1), 0.5, gris_rowline),
+        ("LEFTPADDING", (0,0), (-1,-1), 6),
+        ("RIGHTPADDING", (0,0), (-1,-1), 6),
+        ("TOPPADDING", (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+    ]))
+
+    # Badge de TOTAL grande arriba a la derecha
+    total_badge = Table(
+        [[Paragraph("TOTAL", styles["H2Muted"]), Paragraph(money(TOTAL), styles["TotalsGrand"])]],
+        colWidths=[22*mm, 44*mm]
+    )
+    total_badge.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), colors.white),
+        ("BOX", (0,0), (-1,-1), 0.6, gris_rowline),
+        ("RIGHTPADDING", (1,0), (1,0), 6),
+        ("LEFTPADDING", (0,0), (0,0), 6),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+    ]))
+
+    right_block = Table([[title_par], [meta_card], [Spacer(1, 4*mm)], [total_badge]], colWidths=[115*mm])
+    right_block.setStyle(TableStyle([("ALIGN", (0,0), (-1,-1), "RIGHT")]))
+
+    # Logo (más chico)
     logo_path = find_logo_path()
     if logo_path:
         with open(logo_path, "rb") as f:
-            logo_cell.append(Image(io.BytesIO(f.read()), width=60*mm, height=60*mm))
+            logo = Image(io.BytesIO(f.read()), width=45*mm, height=45*mm)
     else:
-        logo_cell.append(Paragraph(f"<font color='{azul}'>"
-                                   f"<b>{empresa}</b></font>", styles["LabelBold"]))
+        logo = Paragraph(f"<font color='{azul}'><b>{empresa}</b></font>", styles["LabelBold"])
 
-    header_tbl = Table(
-        [[logo_cell[0], Table([[x] for x in meta_right], colWidths=[115*mm])]],
-        colWidths=[60*mm, None]
-    )
+    header_tbl = Table([[logo, right_block]], colWidths=[60*mm, None])
     header_tbl.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("ALIGN", (1, 0), (1, 0), "CENTER"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
         ("TOPPADDING", (0, 0), (-1, -1), 0),
@@ -380,22 +365,14 @@ def build_pdf() -> bytes:
     ]))
     story += [header_tbl, Spacer(1, 8*mm)]
 
-    # Cotización para:
-    para_tbl = Table([[
-        Table([
-            [Paragraph("Cotización para:", styles["LabelLeft"])],
-            [Paragraph(f"<b>{cliente}</b>", styles["LabelBold"])]
-        ], colWidths=[90*mm])
-    ]], colWidths=[None])
-    para_tbl.setStyle(TableStyle([
-        ("LEFTPADDING", (0,0), (-1,-1), 0),
-        ("RIGHTPADDING", (0,0), (-1,-1), 0),
-        ("TOPPADDING", (0,0), (-1,-1), 0),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
-    ]))
-    story += [para_tbl, Spacer(1, 6*mm)]
+    # -------- Cotización para --------
+    story += [
+        Paragraph("Cotización para:", styles["LabelLeft"]),
+        Paragraph(f"<b>{cliente}</b>", styles["LabelBold"]),
+        Spacer(1, 6*mm)
+    ]
 
-    # Tabla de artículos (estilo gris)
+    # -------- Tabla de productos "más linda" --------
     table_data = [["Artículos", "Cantidad", "Valor unitario", "Monto total"]]
     for _, row in df.iterrows():
         table_data.append([
@@ -407,18 +384,29 @@ def build_pdf() -> bytes:
 
     items_tbl = Table(table_data, colWidths=[95*mm, 25*mm, 35*mm, 35*mm])
     items_tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#6e6e6e")),
+        # Encabezado
+        ("BACKGROUND", (0, 0), (-1, 0), gris_header),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, 0), 11),
         ("ALIGN", (1, 0), (-1, 0), "CENTER"),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
         ("TOPPADDING", (0, 0), (-1, 0), 8),
+
+        # Zebra rows
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f7f8fb")]),
+
+        # Tipografía & alineación cuerpo
         ("FONTSIZE", (0, 1), (-1, -1), 10.5),
         ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
         ("ALIGN", (0, 1), (0, -1), "LEFT"),
-        ("GRID", (0, 1), (-1, -1), 0.25, colors.HexColor("#e6e6e6")),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.25, colors.HexColor("#e6e6e6")),
+
+        # Bordes suaves + caja exterior
+        ("GRID", (0, 1), (-1, -1), 0.25, gris_rowline),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.25, gris_rowline),
+        ("BOX", (0, 0), (-1, -1), 0.5, gris_rowline),
+
+        # Padding
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 1), (-1, -1), 6),
@@ -426,7 +414,7 @@ def build_pdf() -> bytes:
     ]))
     story += [items_tbl, Spacer(1, 10*mm)]
 
-    # Totales (recalculo local para consistencia)
+    # -------- Totales (final) --------
     sb = float(df["monto"].sum()) if not df.empty else 0.0
     disc = sb * (descuento_pct / 100.0)
     base_local = sb - disc
@@ -448,7 +436,7 @@ def build_pdf() -> bytes:
     ]))
     story += [Table([[Spacer(1,0), totals_tbl]], colWidths=[110*mm, 45*mm]), Spacer(1, 10*mm)]
 
-    # Notas y Términos
+    # -------- Notas y Términos --------
     story += [
         Paragraph("Notas:", styles["H2Muted"]),
         Paragraph(notas.replace("\n", "<br/>"), styles["LabelLeft"]),
