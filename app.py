@@ -31,13 +31,13 @@ def money(x: float) -> str:
     except Exception:
         return f"{CURRENCY} 0,00"
 
-# Estado inicial de ítems (estilo GlobalTrip)
+# Estado inicial de ítems (evitar choque con .items())
 DEFAULT_ITEMS = [
     {"descripcion": "Taza Lucky de porcelana eléctrica con calentador", "cantidad": 1, "precio": 18999.0},
     {"descripcion": "Vaso térmico con sensor de temperatura digital", "cantidad": 1, "precio": 13999.0},
 ]
-if "items" not in st.session_state:
-    st.session_state.items = DEFAULT_ITEMS.copy()
+if "line_items" not in st.session_state:
+    st.session_state["line_items"] = DEFAULT_ITEMS.copy()
 
 # -------------------- Encabezado --------------------
 st.title("🧾 Generador de Presupuestos")
@@ -72,30 +72,30 @@ def render_item(i: int, item: dict):
     with c3:
         item["precio"] = st.number_input("Precio unitario", min_value=0.0, value=float(item.get("precio", 0.0)), step=100.0, key=f"prec_{i}")
     if st.button("🗑️ Eliminar ítem", key=f"del_{i}"):
-        st.session_state.items.pop(i)
+        st.session_state["line_items"].pop(i)
         st.rerun()
 
-for idx in range(len(st.session_state.items)):
+for idx in range(len(st.session_state["line_items"])):
     try:
         card = st.container(border=True)
     except TypeError:
         card = st.container()
     with card:
-        render_item(idx, st.session_state.items[idx])
+        render_item(idx, st.session_state["line_items"][idx])
 
 c_add, c_clear = st.columns(2)
 with c_add:
     if st.button("➕ Agregar ítem", type="secondary", use_container_width=True):
-        st.session_state.items.append({"descripcion": "", "cantidad": 1, "precio": 0.0})
+        st.session_state["line_items"].append({"descripcion": "", "cantidad": 1, "precio": 0.0})
         st.rerun()
 with c_clear:
     if st.button("🧹 Vaciar ítems", use_container_width=True):
-        st.session_state.items = []
+        st.session_state["line_items"] = []
         st.rerun()
 
 # Tabla resumen solo-lectura para ver totales
-if st.session_state.items:
-    df = pd.DataFrame(st.session_state.items).fillna({"cantidad": 0, "precio": 0.0})
+if st.session_state["line_items"]:
+    df = pd.DataFrame(st.session_state["line_items"]).fillna({"cantidad": 0, "precio": 0.0})
     df["monto"] = df["cantidad"] * df["precio"]
 else:
     df = pd.DataFrame(columns=["descripcion", "cantidad", "precio", "monto"])
