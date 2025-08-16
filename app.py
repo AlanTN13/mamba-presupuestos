@@ -25,46 +25,38 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# -------------------- Estilos Azul/Amarillo (Boca) --------------------
+# -------------------- Estilos (azul #0033cc + amarillo #ffcc00) --------------------
 st.markdown("""
 <style>
 :root{
-  --primary:#0d47a1;   /* Azul */
-  --accent:#ffca28;    /* Amarillo */
+  --primary:#0033cc;   /* Azul */
+  --accent:#ffcc00;    /* Amarillo */
   --bg:#ffffff;        /* Blanco */
-  --text:#0d47a1;      /* Texto principal azul */
-  --muted:#5f6368;     /* Gris */
+  --text:#1f2a44;      /* Azul neutro p/ textos */
+  --muted:#5f6368;
   --radius:14px;
   --shadow:0 6px 18px rgba(0,0,0,.08);
 }
 
 /* Fondo y tipografía */
 html, body, .stApp { background: var(--bg) !important; color: var(--text) !important; }
-
-/* Separadores */
-hr { border:0; height:1px; background: #e6e8eb; }
+.block-container { padding-top: 2rem !important; }
 
 /* Títulos */
-h1,h2,h3,h4,h5,h6 {
-  color: var(--primary) !important;
-  font-weight: 800 !important;
-}
-
-/* Contenedores con borde (fallback si no hay border=True) */
-.block-container { padding-top: 2rem !important; }
+h1,h2,h3,h4,h5,h6 { color: var(--primary) !important; font-weight:800 !important; }
 
 /* Inputs */
 .stTextInput > div > div > input,
 .stTextArea textarea,
 .stNumberInput input,
 .stDateInput input {
-  border:1.2px solid var(--primary) !important;
+  border:1.3px solid var(--primary) !important;
   border-radius: var(--radius) !important;
   color: var(--text) !important;
-  background: #fff !important;
+  background:#fff !important;
 }
 
-/* Botones */
+/* Botones genéricos */
 .stButton>button {
   background: var(--primary) !important;
   color: #fff !important;
@@ -73,7 +65,19 @@ h1,h2,h3,h4,h5,h6 {
   box-shadow: var(--shadow) !important;
   border: 0 !important;
 }
-.stButton>button:hover { background: var(--accent) !important; color: var(--primary) !important; }
+.stButton>button:hover { background: var(--accent) !important; color: #001b66 !important; }
+
+/* Botones + / - de st.number_input (quita el rojo) */
+div[data-testid="stNumberInput"] button {
+  background: var(--accent) !important;
+  color: #001b66 !important;
+  border: 1px solid var(--primary) !important;
+  border-radius: 10px !important;
+}
+div[data-testid="stNumberInput"] button:hover {
+  background: var(--primary) !important;
+  color: #fff !important;
+}
 
 /* Métricas */
 [data-testid="stMetricValue"] { color: var(--primary) !important; }
@@ -91,14 +95,14 @@ CURRENCY = "ARS"
 BASE_DIR = Path(__file__).parent
 ASSETS_DIR = BASE_DIR / "assets"
 
-# buscamos automáticamente el logo en varias rutas habituales
+# buscamos automáticamente el logo en rutas comunes
 LOGO_CANDIDATES = [
     ASSETS_DIR / "logo.png",
     ASSETS_DIR / "logo.jpg",
     ASSETS_DIR / "logo.jpeg",
     BASE_DIR / "logo.png",
     BASE_DIR / "logo.jpg",
-    BASE_DIR / "Imagen 1.jpg",  # tu archivo actual
+    BASE_DIR / "Imagen 1.jpg",  # el tuyo actual
 ]
 
 def find_logo_path() -> Path | None:
@@ -115,9 +119,8 @@ def money(x: float) -> str:
 
 # evitar choque con .items()
 DEFAULT_ITEMS = [
-    {"descripcion": "Taza Lucky de porcelana eléctrica con calentador", "cantidad": 20, "precio": 18999.0},
-    {"descripcion": "Vaso térmico con sensor de temperatura digital", "cantidad": 20, "precio": 13999.0},
-    {"descripcion": "Espejo de maquillaje con luz LED", "cantidad": 20, "precio": 9500.0},
+    {"descripcion": "Taza Lucky de porcelana eléctrica con calentador", "cantidad": 1, "precio": 18999.0},
+    {"descripcion": "Vaso térmico con sensor de temperatura digital", "cantidad": 1, "precio": 13999.0},
 ]
 if "line_items" not in st.session_state:
     st.session_state["line_items"] = DEFAULT_ITEMS.copy()
@@ -142,7 +145,7 @@ with colD:
 
 st.markdown("---")
 
-# -------------------- Ítems (UI tipo tarjetas + resumen) --------------------
+# -------------------- Ítems (tipo tarjetas) --------------------
 st.subheader("Ítems")
 
 def render_item(i: int, item: dict):
@@ -176,7 +179,7 @@ with c_clear:
         st.session_state["line_items"] = []
         st.rerun()
 
-# Resumen para totales
+# -------------------- Resumen & Totales --------------------
 if st.session_state["line_items"]:
     df = pd.DataFrame(st.session_state["line_items"]).fillna({"cantidad": 0, "precio": 0.0})
     df["monto"] = df["cantidad"] * df["precio"]
@@ -189,7 +192,6 @@ st.dataframe(
     hide_index=True,
 )
 
-# -------------------- Totales (UI) --------------------
 subtotal = float(df["monto"].sum()) if not df.empty else 0.0
 descuento = subtotal * (descuento_pct / 100.0)
 base = subtotal - descuento
@@ -223,7 +225,7 @@ terminos = st.text_area(
     height=120,
 )
 
-# -------------------- PDF: estilo similar a tu Word --------------------
+# -------------------- PDF --------------------
 def build_pdf() -> bytes:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -235,7 +237,7 @@ def build_pdf() -> bytes:
     )
 
     styles = getSampleStyleSheet()
-    # estilos únicos
+    # estilos únicos (evita choque de nombres)
     if "H1X" not in styles:
         styles.add(ParagraphStyle(name="H1X", fontSize=18, leading=22, spaceAfter=6))
     if "H2X" not in styles:
@@ -244,7 +246,7 @@ def build_pdf() -> bytes:
         styles.add(ParagraphStyle(name="RightX", alignment=TA_RIGHT))
     if "TitleBadge" not in styles:
         styles.add(ParagraphStyle(name="TitleBadge", fontSize=28, leading=30,
-                                  backColor=colors.yellow, textColor=colors.black,
+                                  backColor=colors.HexColor("#ffcc00"), textColor=colors.black,
                                   alignment=TA_RIGHT, spaceAfter=6))
     if "HashNum" not in styles:
         styles.add(ParagraphStyle(name="HashNum", fontSize=12, textColor=colors.grey, alignment=TA_RIGHT))
@@ -253,7 +255,7 @@ def build_pdf() -> bytes:
 
     story = []
 
-    # fila superior: logo izq + título resaltado der
+    # fila superior: logo izq + título a la derecha
     left_cells = []
     logo_path = find_logo_path()
     if logo_path:
@@ -274,7 +276,7 @@ def build_pdf() -> bytes:
     header_top.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     story += [header_top, Spacer(1, 4 * mm)]
 
-    # bloque empresa/cliente a la izq + datos a la derecha
+    # empresa/cliente + datos
     left_info = [
         Paragraph(f"<b>{empresa}</b>", styles["H1X"]),
         Spacer(1, 1 * mm),
@@ -292,7 +294,7 @@ def build_pdf() -> bytes:
     header_mid.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     story += [header_mid, Spacer(1, 3 * mm)]
 
-    # badge TOTAL (caja gris claro) alineada a la derecha
+    # cajita TOTAL
     total_tbl = Table(
         [[Paragraph(":", styles["H2X"]), Paragraph(money(TOTAL), styles["TotalBox"])]],
         colWidths=[10 * mm, 60 * mm]
@@ -307,7 +309,7 @@ def build_pdf() -> bytes:
     total_row = Table([[Spacer(1, 0), total_tbl]], colWidths=[110 * mm, 60 * mm])
     story += [total_row, Spacer(1, 6 * mm)]
 
-    # tabla de items (encabezado oscuro)
+    # tabla de ítems
     table_data = [["Artículo", "Cantidad", "Precio", "Monto"]]
     for _, row in df.iterrows():
         table_data.append([
@@ -345,7 +347,7 @@ def build_pdf() -> bytes:
     totals_row = Table([[Spacer(1, 0), totals_tbl]], colWidths=[95 * mm, 75 * mm])
     story += [totals_row, Spacer(1, 6 * mm)]
 
-    # notas/terminos
+    # notas / términos
     story += [Paragraph("Notas:", styles["H2X"]), Paragraph(notas.replace("\n", "<br/>"), styles["Normal"]), Spacer(1, 2 * mm)]
     story += [Paragraph("Términos:", styles["H2X"]), Paragraph(terminos.replace("\n", "<br/>"), styles["Normal"])]
 
