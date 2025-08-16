@@ -12,7 +12,7 @@ import streamlit.components.v1 as components
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT
+from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
@@ -31,7 +31,7 @@ st.markdown("""
 <style>
 :root{
   --primary:#000033;   /* Único azul */
-  --accent:#ffcc00;    /* Amarillo hover */
+  --accent:#ffcc00;    /* Hover amarillo */
   --bg:#ffffff;
   --text:#1f2430;
   --muted:#6b7280;
@@ -89,11 +89,11 @@ div[data-testid="stNumberInput"] button:hover {
 """, unsafe_allow_html=True)
 
 # -------------------- Helpers --------------------
-CURRENCY = "ARS"
+CURRENCY = "$"  # para PDF estilo Word
+
 BASE_DIR = Path(__file__).parent
 ASSETS_DIR = BASE_DIR / "assets"
 
-# buscamos automáticamente el logo
 LOGO_CANDIDATES = [
     ASSETS_DIR / "logo.png",
     ASSETS_DIR / "logo.jpg",
@@ -111,14 +111,21 @@ def find_logo_path() -> Path | None:
 
 def money(x: float) -> str:
     try:
-        return f"{CURRENCY} {x:,.2f}".replace(",", "@").replace(".", ",").replace("@", ".")
+        return f"{CURRENCY} {x:,.2f}"  # 1,234,567.89
     except Exception:
-        return f"{CURRENCY} 0,00"
+        return f"{CURRENCY} 0.00"
+
+def fecha_larga(d: date) -> str:
+    meses = [
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    ]
+    return f"{meses[d.month-1].capitalize()} {d.day}, {d.year}"
 
 # evitar choque con .items()
 DEFAULT_ITEMS = [
-    {"descripcion": "Taza Lucky de porcelana eléctrica con calentador", "cantidad": 1, "precio": 18999.0},
-    {"descripcion": "Vaso térmico con sensor de temperatura digital", "cantidad": 1, "precio": 13999.0},
+    {"descripcion": "Taza Lucky de porcelana eléctrica con calentador", "cantidad": 20, "precio": 18999.0},
+    {"descripcion": "Vaso térmico con sensor de temperatura digital", "cantidad": 20, "precio": 13999.0},
 ]
 if "line_items" not in st.session_state:
     st.session_state["line_items"] = DEFAULT_ITEMS.copy()
@@ -295,91 +302,101 @@ terminos = st.text_area(
     height=120,
 )
 
-# -------------------- PDF --------------------
+# -------------------- PDF (estilo Word) --------------------
 def build_pdf() -> bytes:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        rightMargin=18 * mm, leftMargin=18 * mm,
-        topMargin=14 * mm, bottomMargin=16 * mm,
+        leftMargin=22*mm, rightMargin=22*mm,
+        topMargin=18*mm, bottomMargin=18*mm,
         title=f"Presupuesto_{nro}",
     )
 
     styles = getSampleStyleSheet()
-    if "H1X" not in styles:
-        styles.add(ParagraphStyle(name="H1X", fontSize=18, leading=22, spaceAfter=6, textColor=colors.HexColor("#000033")))
-    if "H2X" not in styles:
-        styles.add(ParagraphStyle(name="H2X", fontSize=12, leading=15, textColor=colors.grey))
-    if "RightX" not in styles:
-        styles.add(ParagraphStyle(name="RightX", alignment=TA_RIGHT))
-    if "TitleBadge" not in styles:
-        styles.add(ParagraphStyle(name="TitleBadge", fontSize=28, leading=30,
-                                  backColor=colors.HexColor("#000033"), textColor=colors.white,
-                                  alignment=TA_RIGHT, spaceAfter=6))
-    if "HashNum" not in styles:
-        styles.add(ParagraphStyle(name="HashNum", fontSize=12, textColor=colors.grey, alignment=TA_RIGHT))
-    if "TotalBox" not in styles:
-        styles.add(ParagraphStyle(name="TotalBox", fontSize=14, alignment=TA_RIGHT))
+    azul = colors.HexColor("#000033")
+    gris_h1 = colors.HexColor("#333333")
+    gris_txt = colors.HexColor("#666666")
+    gris_header = colors.HexColor("#6e6e6e")
+    gris_rowline = colors.HexColor("#e6e6e6")
+
+    if "TitleMain" not in styles:
+        styles.add(ParagraphStyle("TitleMain", fontName="Helvetica-Bold",
+                                  fontSize=28, leading=32, textColor=gris_h1, alignment=TA_CENTER, spaceAfter=6))
+    if "Meta" not in styles:
+        styles.add(ParagraphStyle("Meta", fontName="Helvetica",
+                                  fontSize=10.5, leading=14, textColor=gris_txt, alignment=TA_RIGHT))
+    if "LabelLeft" not in styles:
+        styles.add(ParagraphStyle("LabelLeft", fontName="Helvetica",
+                                  fontSize=11, leading=14, textColor=gris_txt))
+    if "LabelBold" not in styles:
+        styles.add(ParagraphStyle("LabelBold", fontName="Helvetica-Bold",
+                                  fontSize=11, leading=14, textColor=gris_h1))
+    if "H2Muted" not in styles:
+        styles.add(ParagraphStyle("H2Muted", fontName="Helvetica-Bold",
+                                  fontSize=11, leading=14, textColor=gris_txt))
+    if "TotalsLabel" not in styles:
+        styles.add(ParagraphStyle("TotalsLabel", fontName="Helvetica",
+                                  fontSize=11, leading=14, textColor=gris_txt, alignment=TA_RIGHT))
+    if "TotalsValue" not in styles:
+        styles.add(ParagraphStyle("TotalsValue", fontName="Helvetica",
+                                  fontSize=11, leading=14, alignment=TA_RIGHT))
+    if "TotalsGrand" not in styles:
+        styles.add(ParagraphStyle("TotalsGrand", fontName="Helvetica-Bold",
+                                  fontSize=12.5, leading=16, alignment=TA_RIGHT))
 
     story = []
 
-    # fila superior: logo izq + título a la derecha
-    left_cells = []
+    # Header: Logo + bloque derecho con título centrado y metadatos
+    title_par = Paragraph(f"Presupuesto: #{nro}", styles["TitleMain"])
+    meta_right = [
+        title_par,
+        Spacer(1, 4*mm),
+        Paragraph(f"Fecha: {fecha_larga(fecha)}", styles["Meta"]),
+        Paragraph(f"Condiciones de pago: {pago}", styles["Meta"]),
+        Paragraph(f"Fecha de vencimiento: {fecha_larga(vencimiento)}", styles["Meta"]),
+    ]
+
+    logo_cell = []
     logo_path = find_logo_path()
     if logo_path:
         with open(logo_path, "rb") as f:
-            left_cells.append(Image(io.BytesIO(f.read()), width=60 * mm, height=60 * mm))
+            logo_cell.append(Image(io.BytesIO(f.read()), width=60*mm, height=60*mm))
     else:
-        left_cells.append(Paragraph(f"<b>{empresa}</b>", styles["H1X"]))
+        logo_cell.append(Paragraph(f"<font color='{azul}'>"
+                                   f"<b>{empresa}</b></font>", styles["LabelBold"]))
 
-    right_cells = [
-        Paragraph("Presupuesto", styles["TitleBadge"]),
-        Paragraph(f"# {nro}", styles["HashNum"]),
-        Spacer(1, 2 * mm),
-    ]
-
-    header_top = Table([[Table([[x] for x in left_cells], colWidths=[80 * mm]),
-                         Table([[x] for x in right_cells], colWidths=[80 * mm])]],
-                       colWidths=[95 * mm, 75 * mm])
-    header_top.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story += [header_top, Spacer(1, 4 * mm)]
-
-    # empresa/cliente + datos
-    left_info = [
-        Paragraph(f"<b>{empresa}</b>", styles["H1X"]),
-        Spacer(1, 1 * mm),
-        Paragraph("Cotización para:", styles["H2X"]),
-        Paragraph(f"<b>{cliente}</b>", styles["Normal"]),
-    ]
-    right_info = [
-        Paragraph(f"Fecha: {fecha.strftime('%d/%m/%Y')}", styles["RightX"]),
-        Paragraph(f"Condiciones de pago: {pago}", styles["RightX"]),
-        Paragraph(f"Fecha de vencimiento: {vencimiento.strftime('%d/%m/%Y')}", styles["RightX"]),
-    ]
-    header_mid = Table([[Table([[x] for x in left_info], colWidths=[90 * mm]),
-                         Table([[x] for x in right_info], colWidths=[80 * mm])]],
-                       colWidths=[95 * mm, 75 * mm])
-    header_mid.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story += [header_mid, Spacer(1, 3 * mm)]
-
-    # Total destacado
-    total_tbl = Table(
-        [[Paragraph("TOTAL", styles["H2X"]), Paragraph(money(TOTAL), styles["TotalBox"])]],
-        colWidths=[20 * mm, 60 * mm]
+    header_tbl = Table(
+        [[logo_cell[0], Table([[x] for x in meta_right], colWidths=[115*mm])]],
+        colWidths=[60*mm, None]
     )
-    total_tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (1, 0), colors.whitesmoke),
-        ("BOX", (0, 0), (1, 0), 0.5, colors.lightgrey),
-        ("RIGHTPADDING", (1, 0), (1, 0), 6),
-        ("LEFTPADDING", (0, 0), (0, 0), 6),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    header_tbl.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (1, 0), (1, 0), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
     ]))
-    total_row = Table([[Spacer(1, 0), total_tbl]], colWidths=[100 * mm, 70 * mm])
-    story += [total_row, Spacer(1, 6 * mm)]
+    story += [header_tbl, Spacer(1, 8*mm)]
 
-    # tabla de ítems
-    table_data = [["Artículo", "Cantidad", "Precio", "Monto"]]
+    # Cotización para:
+    para_tbl = Table([[
+        Table([
+            [Paragraph("Cotización para:", styles["LabelLeft"])],
+            [Paragraph(f"<b>{cliente}</b>", styles["LabelBold"])]
+        ], colWidths=[90*mm])
+    ]], colWidths=[None])
+    para_tbl.setStyle(TableStyle([
+        ("LEFTPADDING", (0,0), (-1,-1), 0),
+        ("RIGHTPADDING", (0,0), (-1,-1), 0),
+        ("TOPPADDING", (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+    ]))
+    story += [para_tbl, Spacer(1, 6*mm)]
+
+    # Tabla de artículos (estilo gris)
+    table_data = [["Artículos", "Cantidad", "Valor unitario", "Monto total"]]
     for _, row in df.iterrows():
         table_data.append([
             str(row.get("descripcion", "")),
@@ -388,37 +405,57 @@ def build_pdf() -> bytes:
             money(float(row.get("monto", 0.0))),
         ])
 
-    items_tbl = Table(table_data, colWidths=[100 * mm, 20 * mm, 25 * mm, 25 * mm])
+    items_tbl = Table(table_data, colWidths=[95*mm, 25*mm, 35*mm, 35*mm])
     items_tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#000033")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#6e6e6e")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 11),
+        ("ALIGN", (1, 0), (-1, 0), "CENTER"),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("TOPPADDING", (0, 0), (-1, 0), 8),
+        ("FONTSIZE", (0, 1), (-1, -1), 10.5),
         ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
-        ("ALIGN", (0, 0), (0, -1), "LEFT"),
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
-        ("TOPPADDING", (0, 0), (-1, 0), 6),
+        ("ALIGN", (0, 1), (0, -1), "LEFT"),
+        ("GRID", (0, 1), (-1, -1), 0.25, colors.HexColor("#e6e6e6")),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.25, colors.HexColor("#e6e6e6")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 1), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
     ]))
-    story += [items_tbl, Spacer(1, 6 * mm)]
+    story += [items_tbl, Spacer(1, 10*mm)]
 
-    # totales
+    # Totales (recalculo local para consistencia)
+    sb = float(df["monto"].sum()) if not df.empty else 0.0
+    disc = sb * (descuento_pct / 100.0)
+    base_local = sb - disc
+    tax = base_local * (impuesto_pct / 100.0)
+    total_local = base_local + tax
+
     totals_tbl = Table([
-        ["Subtotal:", money(subtotal)],
-        [f"Descuento ({descuento_pct:.1f}%):", money(descuento)],
-        [f"Impuesto ({impuesto_pct:.1f}%):", money(impuesto)],
-        ["Total:", money(TOTAL)],
-    ], colWidths=[120 * mm, 50 * mm])
-    totals_tbl.setStyle(TableStyle([
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("LINEABOVE", (0, -1), (-1, -1), 0.5, colors.black),
-    ]))
-    totals_row = Table([[Spacer(1, 0), totals_tbl]], colWidths=[95 * mm, 75 * mm])
-    story += [totals_row, Spacer(1, 6 * mm)]
+        [Paragraph("Subtotal:", styles["TotalsLabel"]), Paragraph(money(sb), styles["TotalsValue"])],
+        [Paragraph(f"Descuento ({descuento_pct:.1f}%):", styles["TotalsLabel"]), Paragraph(money(disc), styles["TotalsValue"])],
+        [Paragraph(f"Impuesto ({impuesto_pct:.1f}%):", styles["TotalsLabel"]), Paragraph(money(tax), styles["TotalsValue"])],
+        [Paragraph("Total:", styles["TotalsLabel"]), Paragraph(money(total_local), styles["TotalsGrand"])],
+    ], colWidths=[120*mm, 35*mm])
 
-    # notas / términos
-    story += [Paragraph("Notas:", styles["H2X"]), Paragraph(notas.replace("\n", "<br/>"), styles["Normal"]), Spacer(1, 2 * mm)]
-    story += [Paragraph("Términos:", styles["H2X"]), Paragraph(terminos.replace("\n", "<br/>"), styles["Normal"])]
+    totals_tbl.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("LINEABOVE", (0, -1), (-1, -1), 0.5, colors.black),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story += [Table([[Spacer(1,0), totals_tbl]], colWidths=[110*mm, 45*mm]), Spacer(1, 10*mm)]
+
+    # Notas y Términos
+    story += [
+        Paragraph("Notas:", styles["H2Muted"]),
+        Paragraph(notas.replace("\n", "<br/>"), styles["LabelLeft"]),
+        Spacer(1, 4*mm),
+        Paragraph("Términos:", styles["H2Muted"]),
+        Paragraph(terminos.replace("\n", "<br/>"), styles["LabelLeft"]),
+    ]
 
     doc.build(story)
     out = buffer.getvalue()
